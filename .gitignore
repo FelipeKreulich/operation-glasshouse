@@ -1,0 +1,21 @@
+# Payloads e binários compilados (nunca commitar implants de verdade)
+*.exe
+*.bin
+payloads/
+implants/
+
+# Logs e dados capturados (podem conter dados sensíveis)
+logs/
+*.log
+sessions/
+
+# Configs com credenciais
+.env
+*.key
+*.pem
+secrets/
+
+# Sistema
+.DS_Store
+__pycache__/
+*.pyc
