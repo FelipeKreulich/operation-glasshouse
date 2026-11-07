@@ -1,0 +1,26 @@
+networks:
+  net-offense:
+    driver: bridge
+    internal: true
+  net-c2:
+    driver: bridge
+    internal: true
+  net-detection:
+    driver: bridge
+
+volumes:
+  sliver-data:
+
+services:
+  sliver-c2:
+    build:
+      context: ./c2
+    container_name: sliver-c2
+    hostname: sliver-c2
+    networks:
+      - net-c2
+    volumes:
+      - sliver-data:/root/.sliver
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
