@@ -39,4 +39,6 @@ services:
     networks:
       - net-offense
       - net-c2
+    volumes:
+      - ./detection/captures:/captures
     restart: unless-stopped
