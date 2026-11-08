@@ -24,3 +24,11 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+  target:
+    build:
+      context: ./target
+    container_name: target
+    hostname: target
+    networks:
+      - net-c2
+    restart: unless-stopped
