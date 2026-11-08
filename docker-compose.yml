@@ -4,7 +4,6 @@ networks:
     internal: true
   net-c2:
     driver: bridge
-    internal: true
   net-detection:
     driver: bridge
 
@@ -30,5 +29,14 @@ services:
     container_name: target
     hostname: target
     networks:
+      - net-offense
+    restart: unless-stopped
+  redirector:
+    build:
+      context: ./redirector
+    container_name: redirector
+    hostname: redirector
+    networks:
+      - net-offense
       - net-c2
     restart: unless-stopped
