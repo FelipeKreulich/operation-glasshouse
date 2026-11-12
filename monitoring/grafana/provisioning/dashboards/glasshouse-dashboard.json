@@ -1,0 +1,127 @@
+{
+  "title": "Operation GLASSHOUSE — Live Detection",
+  "uid": "glasshouse-live",
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Coefficient of Variation by source",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 1.2,
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.4 },
+              { "color": "green", "value": 0.8 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "glasshouse_checkin_cv",
+          "legendFormat": "{{source}}",
+          "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Verdict by source",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" },
+      "gridPos": { "h": 9, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "-1": { "text": "COLLECTING...", "color": "text" } } },
+            { "type": "value", "options": { "0": { "text": "NORMAL", "color": "green" } } },
+            { "type": "value", "options": { "0.5": { "text": "AMBIGUOUS", "color": "orange" } } },
+            { "type": "value", "options": { "1": { "text": "SUSPICIOUS", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "glasshouse_verdict",
+          "legendFormat": "{{source}}",
+          "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Active sources (checked in within 2m)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" },
+      "gridPos": { "h": 9, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value" },
+      "targets": [
+        {
+          "expr": "count(time() - glasshouse_last_checkin_timestamp < 120)",
+          "legendFormat": "active",
+          "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Check-in interval over time",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "bars", "fillOpacity": 40 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "glasshouse_checkin_interval_seconds",
+          "legendFormat": "{{source}}",
+          "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Total check-ins by source",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "fieldConfig": {
+        "defaults": { "unit": "none", "custom": { "drawStyle": "line", "lineWidth": 2 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "glasshouse_checkin_total",
+          "legendFormat": "{{source}}",
+          "datasource": { "type": "prometheus", "uid": "glasshouse-prometheus" }
+        }
+      ]
+    }
+  ]
+}

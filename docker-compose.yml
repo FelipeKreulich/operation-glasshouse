@@ -4,11 +4,14 @@ networks:
     internal: true
   net-c2:
     driver: bridge
+    # internal: true REMOVED — required for multi-homed redirector to route between networks
   net-detection:
     driver: bridge
 
 volumes:
   sliver-data:
+  prometheus-data:
+  grafana-data:
 
 services:
   sliver-c2:
@@ -23,14 +26,7 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
-  target:
-    build:
-      context: ./target
-    container_name: target
-    hostname: target
-    networks:
-      - net-offense
-    restart: unless-stopped
+
   redirector:
     build:
       context: ./redirector
@@ -39,6 +35,47 @@ services:
     networks:
       - net-offense
       - net-c2
+      - net-detection
     volumes:
       - ./detection/captures:/captures
+    restart: unless-stopped
+
+  target:
+    build:
+      context: ./target
+    container_name: target
+    hostname: target
+    networks:
+      - net-offense
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    hostname: prometheus
+    networks:
+      - net-detection
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    hostname: grafana
+    networks:
+      - net-detection
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=glasshouse
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
     restart: unless-stopped
